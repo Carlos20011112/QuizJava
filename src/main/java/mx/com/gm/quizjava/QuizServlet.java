@@ -6,51 +6,61 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-
 import java.io.IOException;
 
 @WebServlet("/quiz")
 public class QuizServlet extends HttpServlet {
-    private static final Question[] questions = {
-        new Question("What is the size of int in Java?", new String[]{"4 bytes", "8 bytes", "16 bytes"}, 0),
-        new Question("Which company developed Java?", new String[]{"Apple", "Sun Microsystems", "Microsoft"}, 1),
-        new Question("What is the default value of a boolean in Java?", new String[]{"true", "false", "null"}, 1)
-};
+
+    private QuestionBank questionBank;
+
+/*Ayudará cuando las preguntas estén en bases de datos*/
+    @Override
+    public void init() {
+        questionBank = new QuestionBank();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
+
         Integer currentQuestion = (Integer) session.getAttribute("currentQuestion");
+
+
         if (currentQuestion == null) {
             currentQuestion = 0;
             session.setAttribute("currentQuestion", currentQuestion);
         }
 
-        if (currentQuestion >= questions.length) {
+        Question question = questionBank.getQuestions(currentQuestion);
+
+        if (question == null || currentQuestion >= questionBank.getListSize()) {
             response.sendRedirect("result.jsp");
         } else {
-            request.setAttribute("question", questions[currentQuestion]);
+            request.setAttribute("question", question);
             request.getRequestDispatcher("quiz.jsp").forward(request, response);
         }
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        HttpSession session = req.getSession();
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        HttpSession session = request.getSession();
         Integer currentQuestion = (Integer) session.getAttribute("currentQuestion");
 
-        int selectedOption = Integer.parseInt(req.getParameter("answer"));
-        if (questions[currentQuestion].isCorrect(selectedOption)) {
+        //Verifica si hay alguna opción seleccionada
+        int selectedOption = Integer.parseInt(request.getParameter("answer"));
+
+        Question question = questionBank.getQuestions(currentQuestion);
+        if (question != null && question.isCorrect(selectedOption)) {
             currentQuestion++;
             session.setAttribute("currentQuestion", currentQuestion);
-            if (currentQuestion >= questions.length) {
-                resp.sendRedirect("result.jsp");
+            if (currentQuestion >= questionBank.getListSize()) {
+                response.sendRedirect("result.jsp");
             } else {
-                resp.sendRedirect("quiz");
+                response.sendRedirect("quiz");
             }
         } else {
             session.invalidate();
-            resp.sendRedirect("result.jsp?status=fail");
+            response.sendRedirect("result.jsp?status=fail");
         }
     }
 }
